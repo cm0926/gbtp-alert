@@ -5,109 +5,85 @@ import google.generativeai as genai
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import time
 
-# ==========================================
-# 1. 개인 설정 (이 부분만 수정하세요)
-# ==========================================
+# --- [1. 개인 설정] ---
 MY_COMPANY_INFO = {
     "name": "(주)씨엠",
-    "type": "제조 및 IT 서비스", # 예: 자동차, 섬유, 신소재부품가공, 라이프케이소재, 첨단디지털부품, SW 개발 등
-    "interest": "자금지원, 마케팅, 기술개발(R&D), 시제품제작, 제품고급화, 디자인",
+    "type": "제조 및 IT",
+    "interest": "스마트공장, 신규시장 개척, 장비 지원, 시제품 제작",
     "target_email": "cm2407@naver.com"
 }
 
-GEMINI_API_KEY = "AIzaSyA40kKTWXCl__udh224ydOatLhEo7yfKiA"
-NAVER_ID = "cm2407"
-NAVER_APP_PW = "BGBKWDZEFKP5"
+genai.configure(api_key="AIzaSyA40kKTWXCl__udh224ydOatLhEo7yfKiA")
+EMAIL_ID = "cm2407"
+APP_PASSWORD = "BGBKWDZEFKP5"
 
-# ==========================================
-# 2. 수집 대상 사이트 정의
-# ==========================================
-TARGET_SITES = [
-    {"name": "경북테크노파크", "url": "https://www.gbtp.or.kr/user/board.do?bbsId=BBSMSTR_000000000021&searchTerm=ing", "base": "https://www.gbtp.or.kr"},
-    {"name": "경북경제진흥원", "url": "https://www.gepa.kr/?page_id=36", "base": "https://www.gepa.kr"},
-    {"name": "경북창조경제혁신센터", "url": "https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do", "base": "https://www.k-startup.go.kr"},
-]
-
-genai.configure(api_key=GEMINI_API_KEY)
-
-def get_notices(site):
-    """사이트별 공고 수집"""
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    notices = []
+def get_detailed_info(link):
+    """상세 페이지에 접속하여 본문 및 첨부파일 확인"""
     try:
-        res = requests.get(site['url'], headers=headers, timeout=10)
+        res = requests.get(link, timeout=10)
         soup = BeautifulSoup(res.text, 'html.parser')
+        # 상세 페이지의 텍스트만 추출 (PDF를 직접 읽기 전 단계)
+        content = soup.select_one('.board_view_area').get_text(strip=True)
+        return content[:2000] # 분석을 위해 앞부분 2000자만 가져옴
+    except:
+        return "본문 내용을 가져오지 못했습니다."
+
+def run_automation():
+    # 1. 목록 페이지 수집
+    list_url = "https://www.gbtp.or.kr/user/board/list?menu=231"
+    res = requests.get(list_url, timeout=10)
+    soup = BeautifulSoup(res.text, 'html.parser')
+    
+    # 2. 공고 목록 추출 (이미지 주신 17번, 16번 등)
+    rows = soup.select('table.table tbody tr')
+    
+    collected_data = []
+    for row in rows[:3]: # 최신 공고 3개만 깊게 분석
+        title_el = row.select_one('td.subject a')
+        if title_el:
+            title = title_el.get_text(strip=True)
+            link = "https://www.gbtp.or.kr" + title_el['href']
+            
+            print(f"🔎 상세 분석 중: {title}")
+            detail_text = get_detailed_info(link)
+            collected_data.append({"title": title, "link": link, "content": detail_text})
+
+    # 3. AI 맞춤형 분석
+    if collected_data:
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        context = "\n".join([f"제목: {d['title']}\n내용: {d['content']}\n---" for d in collected_data])
         
-        # 공통적인 게시판 제목 태그 탐색 (사이트마다 다를 수 있음)
-        items = soup.select('td.subject a, td.title a, div.title a, a.subject_link')
+        prompt = f"""
+        당신은 기업 컨설턴트입니다. 다음 공고들이 우리 회사({MY_COMPANY_INFO['name']})에 적합한지 분석하세요.
+        우리 회사 분야: {MY_COMPANY_INFO['type']}, 관심사: {MY_COMPANY_INFO['interest']}
+
+        [공고 데이터]
+        {context}
+
+        각 공고별로 다음 양식을 지켜주세요:
+        1. 추천 여부: (적극추천/보통/해당없음)
+        2. 이유: (회사 업종과 연관 지어 1줄 요약)
+        3. 핵심내용: (지원금액, 마감일)
+        4. 링크: (제공된 링크 그대로)
         
-        for item in items[:5]: # 최근 5개만
-            title = item.get_text(strip=True)
-            link = item['href']
-            if not link.startswith('http'):
-                link = site['base'] + link
-            notices.append({"site": site['name'], "title": title, "link": link})
-    except Exception as e:
-        print(f"Error crawling {site['name']}: {e}")
-    return notices
-
-def analyze_with_ai(notice_list):
-    """AI에게 맞춤형 분석 요청"""
-    model = genai.GenerativeModel('gemini-1.5-flash')
-    
-    notice_text = "\n".join([f"[{n['site']}] {n['title']}" for n in notice_list])
-    
-    prompt = f"""
-    당신은 경북 지역 기업 컨설턴트입니다. 
-    다음 [공고 목록] 중 [우리 회사 정보]에 적합한 사업을 골라 '맞춤형 보고서'를 작성하세요.
-    
-    [우리 회사 정보]
-    - 회사명: {MY_COMPANY_INFO['name']}
-    - 업종: {MY_COMPANY_INFO['type']}
-    - 관심: {MY_COMPANY_INFO['interest']}
-
-    [공고 목록]
-    {notice_text}
-
-    형식:
-    - 연습중이니 모든 공고를 무조건 다 요약해서 메일로 보내주세요.
-    - 각 공고마다 '추천 이유(우리 회사에 어떤 이득인가?)'를 1줄로 포함하세요.
-    - 요약 형식: [기관명] 사업명 (링크) -> 추천 이유
-    - 만약 적합한게 하나도 없다면 '새로운 맞춤형 공고가 없습니다.'라고만 답하세요.
-    """
-    
-    response = model.generate_content(prompt)
-    return response.text
+        *적합한 게 없더라도 공부 차원에서 가장 최신 것 1개는 반드시 분석해 주세요.
+        """
+        
+        report = model.generate_content(prompt).text
+        send_email(report)
 
 def send_email(content):
-    """분석 내용을 이메일로 발송"""
-    if "없습니다" in content and len(content) < 50:
-        return # 보낼 내용 없으면 종료
-
     msg = MIMEMultipart()
-    msg['Subject'] = f"🚀 [맞춤형 알림] {MY_COMPANY_INFO['name']}님을 위한 지원사업 요약"
-    msg['From'] = f"{NAVER_ID}@naver.com"
+    msg['Subject'] = f"🚀 [오늘의 맞춤공고] {MY_COMPANY_INFO['name']} 분석 리포트"
+    msg['From'] = f"{EMAIL_ID}@naver.com"
     msg['To'] = MY_COMPANY_INFO['target_email']
     msg.attach(MIMEText(content, 'plain'))
 
     with smtplib.SMTP_SSL("smtp.naver.com", 465) as server:
-        server.login(NAVER_ID, NAVER_APP_PW)
+        server.login(EMAIL_ID, APP_PASSWORD)
         server.send_message(msg)
+    print("✅ 메일 발송 완료!")
 
-# --- 메인 실행 로직 ---
 if __name__ == "__main__":
-    print("🚀 공고 수집 시작...")
-    all_collected = []
-    for site in TARGET_SITES:
-        all_collected.extend(get_notices(site))
-    
-if not all_collected:
-    print("⚠️ 수집된 공고가 없습니다. 네트워크 상태를 확인하세요.")
-    # 테스트를 위해 빈 메일이라도 보내보려면 아래 주석 해제
-    # report = "현재 모든 사이트 접속에 실패했거나 새로운 공고가 없습니다."
-    # send_email(report)
-
-
-
+    run_automation()

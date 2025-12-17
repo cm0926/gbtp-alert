@@ -134,4 +134,5 @@ def run_monitor():
         print("새로운 공고가 없습니다.")
 
 if __name__ == "__main__":
+
     run_monitor()

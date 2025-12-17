@@ -103,12 +103,11 @@ if __name__ == "__main__":
     for site in TARGET_SITES:
         all_collected.extend(get_notices(site))
     
-    if all_collected:
-        print("🤖 AI 분석 중...")
-        report = analyze_with_ai(all_collected)
-        
-        print("📧 메일 발송 중...")
-        send_email(report)
-        print("✅ 완료!")
+if not all_collected:
+    print("⚠️ 수집된 공고가 없습니다. 네트워크 상태를 확인하세요.")
+    # 테스트를 위해 빈 메일이라도 보내보려면 아래 주석 해제
+    # report = "현재 모든 사이트 접속에 실패했거나 새로운 공고가 없습니다."
+    # send_email(report)
+
 
 

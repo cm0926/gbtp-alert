@@ -25,10 +25,9 @@ NAVER_APP_PW = "BGBKWDZEFKP5"
 # 2. 수집 대상 사이트 정의
 # ==========================================
 TARGET_SITES = [
-    {"name": "경북테크노파크", "url": "https://www.gbtp.or.kr/user/board/list?menu=231", "base": "https://www.gbtp.or.kr"},
-    {"name": "경북경제진흥원", "url": "https://www.gepa.kr/user/board/list?menu=131", "base": "https://www.gepa.kr"},
-    {"name": "경북창조경제혁신센터", "url": "https://ccei.creativekorea.or.kr/gyeongbuk/custom/notice_list.do", "base": "https://ccei.creativekorea.or.kr"},
-    {"name": "경북창업포털", "url": "https://www.g-startup.or.kr/user/board/list?menu=131", "base": "https://www.g-startup.or.kr"}
+    {"name": "경북테크노파크", "url": "https://www.gbtp.or.kr/user/board.do?bbsId=BBSMSTR_000000000021&searchTerm=ing", "base": "https://www.gbtp.or.kr"},
+    {"name": "경북경제진흥원", "url": "https://www.gepa.kr/?page_id=36", "base": "https://www.gepa.kr"},
+    {"name": "경북창조경제혁신센터", "url": "https://www.k-startup.go.kr/web/contents/bizpbanc-ongoing.do", "base": "https://www.k-startup.go.kr"},
 ]
 
 genai.configure(api_key=GEMINI_API_KEY)
@@ -111,4 +110,5 @@ if __name__ == "__main__":
         print("📧 메일 발송 중...")
         send_email(report)
         print("✅ 완료!")
+
 

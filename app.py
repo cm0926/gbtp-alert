@@ -13,7 +13,7 @@ TARGET_EMAIL = "cm2407@naver.com"
 def run_test():
     print("🚀 경북테크노파크 수집 시도...")
     # 이미지 153135135.jpg의 실제 게시판 주소
-    url = "https://www.gbtp.or.kr/user/board/list?menu=231"
+    url = "https://www.gbtp.or.kr/user/board.do?bbsId=BBSMSTR_000000000021&searchTerm=ing"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
     
     res = requests.get(url, headers=headers, timeout=20)
@@ -50,4 +50,5 @@ def run_test():
 
 if __name__ == "__main__":
     run_test()
+
 

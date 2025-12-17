@@ -6,7 +6,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
 # --- [정보 설정] ---
-EMAIL_ID = "cm2407@naver.com"
+EMAIL_ID = "cm2407"
 APP_PASSWORD = "BGBKWDZEFKP5"
 TARGET_EMAIL = "cm2407@naver.com"
 
@@ -50,3 +50,4 @@ def run_test():
 
 if __name__ == "__main__":
     run_test()
+
